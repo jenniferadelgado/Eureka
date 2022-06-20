@@ -62,6 +62,7 @@ def genlc(eventlabel, ecf_path=None, s3_meta=None):
     ecffile = 'S4_' + eventlabel + '.ecf'
     meta = readECF.MetaClass(ecf_path, ecffile)
     meta.eventlabel = eventlabel
+    meta.datetime = time_pkg.strftime('%Y-%m-%d')
 
     if s3_meta is None:
         # Locate the old MetaClass savefile, and load new ECF into
@@ -180,6 +181,7 @@ def genlc(eventlabel, ecf_path=None, s3_meta=None):
             lc['wave_err'] = (lc.wave_hi - lc.wave_low)/2
             lc.wave_low.attrs['wave_units'] = spec.wave_1d.attrs['wave_units']
             lc.wave_hi.attrs['wave_units'] = spec.wave_1d.attrs['wave_units']
+            lc.wave_mid.attrs['wave_units'] = spec.wave_1d.attrs['wave_units']
             lc.wave_err.attrs['wave_units'] = spec.wave_1d.attrs['wave_units']
 
             if not hasattr(meta, 'boundary'):

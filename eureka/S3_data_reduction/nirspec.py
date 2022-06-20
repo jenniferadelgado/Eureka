@@ -3,6 +3,7 @@ import numpy as np
 from astropy.io import fits
 import astraeus.xarrayIO as xrio
 from . import nircam, sigrej
+from ..lib.util import read_time
 
 
 def read(filename, data, meta):
@@ -39,8 +40,6 @@ def read(filename, data, meta):
     data.attrs['filename'] = filename
     data.attrs['mhdr'] = hdulist[0].header
     data.attrs['shdr'] = hdulist['SCI', 1].header
-    data.attrs['intstart'] = data.attrs['mhdr']['INTSTART']
-    data.attrs['intend'] = data.attrs['mhdr']['INTEND']
     try:
         data.attrs['intstart'] = data.attrs['mhdr']['INTSTART']
         data.attrs['intend'] = data.attrs['mhdr']['INTEND']
@@ -59,7 +58,9 @@ def read(filename, data, meta):
                                              data.attrs['intend']]
 
     # Record integration mid-times in BJD_TDB
-    if len(int_times['int_mid_BJD_TDB']) == 0:
+    if (hasattr(meta, 'time_file') and meta.time_file is not None):
+        time = read_time(meta, data)
+    elif len(int_times['int_mid_BJD_TDB']) == 0:
         # There is no time information in the simulated NIRSpec data
         print('  WARNING: The timestamps for the simulated NIRSpec data are '
               'currently\n'

@@ -52,6 +52,7 @@ def fitlc(eventlabel, ecf_path=None, s4_meta=None):
     ecffile = 'S5_' + eventlabel + '.ecf'
     meta = readECF.MetaClass(ecf_path, ecffile)
     meta.eventlabel = eventlabel
+    meta.datetime = time_pkg.strftime('%Y-%m-%d')
 
     if s4_meta is None:
         # Locate the old MetaClass savefile, and load new ECF into
@@ -185,8 +186,8 @@ def fitlc(eventlabel, ecf_path=None, s4_meta=None):
 
                     # Normalize flux and uncertainties to avoid large
                     # flux values
-                    flux_err = flux_err/flux.mean()
-                    flux = flux/flux.mean()
+                    flux_err = flux_err/np.nanmean(flux)
+                    flux = flux/np.nanmean(flux)
 
                     meta = fit_channel(meta, time, flux, channel, flux_err,
                                        eventlabel, sharedp, params, log,

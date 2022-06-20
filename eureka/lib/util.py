@@ -1,7 +1,6 @@
 import numpy as np
 from . import sort_nicely as sn
 import os
-import time
 import glob
 
 
@@ -115,17 +114,13 @@ def makedirectory(meta, stage, counter=None, **kwargs):
     run : int
         The run number
     """
-    if not hasattr(meta, 'datetime') or meta.datetime is None:
-        meta.datetime = time.strftime('%Y-%m-%d')
-    datetime = meta.datetime
-
     # This code allows the input and output files to be stored outside
     # of the Eureka! folder
     rootdir = os.path.join(meta.topdir, *meta.outputdir_raw.split(os.sep))
     if rootdir[-1] != os.sep:
         rootdir += os.sep
 
-    outputdir = rootdir+stage+'_'+datetime+'_'+meta.eventlabel+'_run'
+    outputdir = rootdir+stage+'_'+meta.datetime+'_'+meta.eventlabel+'_run'
 
     if counter is None:
         counter = 1
@@ -192,8 +187,6 @@ def pathdirectory(meta, stage, run, old_datetime=None, **kwargs):
     if old_datetime is not None:
         datetime = old_datetime
     else:
-        if not hasattr(meta, 'datetime') or meta.datetime is None:
-            meta.datetime = time.strftime('%Y-%m-%d')
         datetime = meta.datetime
 
     # This code allows the input and output files to be stored outside
@@ -345,3 +338,28 @@ def get_mad_1d(data, ind_min=0, ind_max=-1):
         Single MAD value in ppm
     """
     return 1e6 * np.ma.median(np.ma.abs(np.ma.ediff1d(data[ind_min:ind_max])))
+
+
+def read_time(meta, data):
+    """Read in a time CSV file instead of using the FITS time array.
+
+    Parameters
+    ----------
+    meta : eureka.lib.readECF.MetaClass
+        The metadata object.
+    data : Xarray Dataset
+        The Dataset object with the fits data stored inside.
+
+    Returns
+    -------
+    time : ndarray
+        The time array stored in the meta.time_file CSV file.
+    """
+    fname = os.path.join(meta.topdir,
+                         os.sep.join(meta.time_file.split(os.sep)))
+    if meta.firstFile:
+        print('  Note: Using the time stamps from:\n'+fname)
+    time = np.loadtxt(fname).flatten()[data.attrs['intstart']-1:
+                                       data.attrs['intend']-1]
+
+    return time
