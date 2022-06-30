@@ -22,8 +22,10 @@ def binned_lightcurve(meta, lc, i):
     None
     '''
     # Normalize the light curve
-    norm_lcdata, norm_lcerr = util.normalize_spectrum(meta, lc['data'][i],
-                                                      lc['err'][i])
+    norm_lcdata = np.ma.masked_invalid(np.ma.copy(lc['data'][i]))
+    norm_lcerr = np.ma.masked_invalid(np.ma.copy(lc['err'][i]))
+    norm_lcdata, norm_lcerr = util.normalize_spectrum(meta, norm_lcdata,
+                                                      norm_lcerr)
 
     plt.figure(4102, figsize=(8, 6))
     plt.clf()
