@@ -5,14 +5,25 @@ import os
 from importlib import reload
 import time as time_pkg
 
-sys.path.insert(0, '..'+os.sep)
+sys.path.insert(0, '..'+os.sep+'src'+os.sep)
 from eureka.lib.readECF import MetaClass
 from eureka.lib.util import pathdirectory
 import eureka.lib.plots
 from eureka.S3_data_reduction import s3_reduce as s3
+try:
+    import image_registration
+    imported_image_registration = True
+except ModuleNotFoundError:
+    imported_image_registration = False
 
 
 def test_WFC3(capsys):
+    if not imported_image_registration:
+        raise Exception("HST-relevant packages have not been installed,"
+                        " so the WFC3 test is being skipped. You can install "
+                        "all HST-related dependencies using "
+                        "`pip install .[hst]`.")
+
     # Set up some parameters to make plots look nicer.
     # You can set usetex=True if you have LaTeX installed
     eureka.lib.plots.set_rc(style='eureka', usetex=False, filetype='.pdf')

@@ -175,6 +175,10 @@ def genlc(eventlabel, ecf_path=None, s3_meta=None):
                                   spec.optspec.attrs['time_units'],
                                   name='err')
             lc = xrio.makeDataset({'data': lcdata, 'err': lcerr})
+            if hasattr(spec, 'scandir'):
+                lc['scandir'] = spec.scandir
+            if hasattr(spec, 'drift2D'):
+                lc['drift2D'] = spec.drift2D
             lc['wave_low'] = (['wavelength'], meta.wave_low)
             lc['wave_hi'] = (['wavelength'], meta.wave_hi)
             lc['wave_mid'] = (lc.wave_hi + lc.wave_low)/2
@@ -193,8 +197,7 @@ def genlc(eventlabel, ecf_path=None, s3_meta=None):
             # Create masked array for steps below
             optspec_ma = np.ma.masked_array(spec.optspec, spec.optmask)
             # Create opterr array with same mask as optspec
-            opterr_ma = np.ma.copy(optspec_ma)
-            opterr_ma = spec.opterr
+            opterr_ma = np.ma.masked_array(spec.opterr, optspec_ma.mask)
 
             # Do 1D sigma clipping (along time axis) on unbinned spectra
             if meta.sigma_clip:
@@ -236,7 +239,7 @@ def genlc(eventlabel, ecf_path=None, s3_meta=None):
                                                   optspec_ma[n], k=3, s=0,
                                                   w=weights)
                     spline2 = spi.UnivariateSpline(np.arange(meta.subnx),
-                                                   spec.opterr[n], k=3, s=0,
+                                                   opterr_ma[n], k=3, s=0,
                                                    w=weights)
                     optspec_ma[n] = spline(np.arange(meta.subnx) +
                                            lc.drift1d[n].values)
@@ -260,12 +263,13 @@ def genlc(eventlabel, ecf_path=None, s3_meta=None):
             # spec['optspec_drift']
 
             # Compute MAD alue
-            meta.mad_s4 = util.get_mad(meta, spec.wave_1d.values, optspec_ma,
-                                       meta.wave_min, meta.wave_max)
+            meta.mad_s4 = util.get_mad(meta, log, spec.wave_1d.values,
+                                       optspec_ma, meta.wave_min,
+                                       meta.wave_max)
             log.writelog(f"Stage 4 MAD = {str(np.round(meta.mad_s4, 2))} ppm")
 
             if meta.isplots_S4 >= 1:
-                plots_s4.lc_driftcorr(meta, spec.wave_1d, optspec_ma)
+                plots_s4.lc_driftcorr(meta, lc, spec.wave_1d, optspec_ma)
 
             log.writelog("Generating light curves")
 
@@ -284,7 +288,8 @@ def genlc(eventlabel, ecf_path=None, s3_meta=None):
                 # proper uncertainties
                 lc['err'][i] = (np.sqrt(np.ma.sum(opterr_ma[:, index]**2,
                                                   axis=1)) /
-                                np.ma.MaskedArray.count(opterr_ma))
+                                np.ma.MaskedArray.count(opterr_ma[:, index],
+                                                        axis=1))
 
                 # Do 1D sigma clipping (along time axis) on binned spectra
                 if meta.sigma_clip:

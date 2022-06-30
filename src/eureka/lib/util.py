@@ -48,15 +48,8 @@ def trim(data, meta):
                         x=np.arange(meta.xwindow[0], meta.xwindow[1]))
     meta.subny = meta.ywindow[1] - meta.ywindow[0]
     meta.subnx = meta.xwindow[1] - meta.xwindow[0]
-    if hasattr(meta, 'diffmask'):
-        # Need to crop diffmask and variance from WFC3 as well
-        meta.subdiffmask.append(
-            meta.diffmask[-1][:, meta.ywindow[0]:meta.ywindow[1],
-                              meta.xwindow[0]:meta.xwindow[1]])
-        # data.subvariance = np.copy(
-        #     data.variance[:, meta.ywindow[0]:meta.ywindow[1],
-        #     meta.xwindow[0]:meta.xwindow[1]])
-        # delattr(data, 'variance')
+    if meta.inst == 'wfc3':
+        subdata['guess'] = subdata.guess - meta.ywindow[0]
 
     return subdata, meta
 
@@ -276,7 +269,54 @@ def find_fits(meta):
     return meta
 
 
-def get_mad(meta, wave_1d, optspec, wave_min=None, wave_max=None):
+def normalize_spectrum(meta, optspec, opterr=None):
+    """Normalize a spectrum by its temporal mean.
+
+    Parameters
+    ----------
+    meta : eureka.lib.readECF.MetaClass
+        The new meta object for the current stage processing.
+    optspec : ndarray
+        The spectrum to normalize.
+    opterr : ndarray, optional
+        The noise array to normalize using optspec, by default None.
+
+    Returns
+    -------
+    normspec
+        The normalized spectrum.
+    normerr : ndarray, optional
+        The normalized error. Only returned if opterr is not none.
+    """
+    normspec = np.ma.masked_invalid(np.ma.copy(optspec))
+    if opterr is not None:
+        normerr = np.ma.masked_invalid(np.ma.copy(opterr))
+
+    # Normalize the spectrum
+    if meta.inst == 'wfc3':
+        scandir = np.repeat(meta.scandir, meta.nreads)
+        
+        for p in range(2):
+            iscans = np.where(scandir == p)[0]
+            if len(iscans) > 0:
+                for r in range(meta.nreads):
+                    if opterr is not None:
+                        normerr[iscans[r::meta.nreads]] /= np.ma.mean(
+                            normspec[iscans[r::meta.nreads]], axis=0)
+                    normspec[iscans[r::meta.nreads]] /= np.ma.mean(
+                        normspec[iscans[r::meta.nreads]], axis=0)
+    else:
+        if opterr is not None:
+            normerr = normerr/np.ma.mean(normspec, axis=0)
+        normspec = normspec/np.ma.mean(normspec, axis=0)
+
+    if opterr is not None:
+        return normspec, normerr
+    else:
+        return normspec
+
+
+def get_mad(meta, log, wave_1d, optspec, wave_min=None, wave_max=None):
     """Computes variation on median absolute deviation (MAD) using ediff1d
     for 2D data.
 
@@ -284,6 +324,8 @@ def get_mad(meta, wave_1d, optspec, wave_min=None, wave_max=None):
     ----------
     meta : eureka.lib.readECF.MetaClass
         Unused. The metadata object.
+    log : logedit.Logedit
+        The current log.
     wave_1d : ndarray
         Wavelength array (nx) with trimmed edges depending on xwindow and
         ywindow which have been set in the S3 ecf
@@ -302,7 +344,6 @@ def get_mad(meta, wave_1d, optspec, wave_min=None, wave_max=None):
         Single MAD value in ppm
     """
     optspec = np.ma.masked_invalid(optspec)
-    n_int, nx = optspec.shape
     if wave_min is not None:
         iwmin = np.argmin(np.abs(wave_1d-wave_min))
     else:
@@ -311,12 +352,28 @@ def get_mad(meta, wave_1d, optspec, wave_min=None, wave_max=None):
         iwmax = np.argmin(np.abs(wave_1d-wave_max))
     else:
         iwmax = None
-    normspec = optspec / np.ma.mean(optspec, axis=0)
+
+    # Normalize the spectrum
+    normspec = normalize_spectrum(meta, optspec[:, iwmin:iwmax])
+
+    # Compute the MAD
+    n_int = normspec.shape[0]
     ediff = np.ma.zeros(n_int)
     for m in range(n_int):
-        ediff[m] = get_mad_1d(normspec[m], iwmin, iwmax)
-    mad = np.ma.mean(ediff)
-    return mad
+        ediff[m] = get_mad_1d(normspec[m])
+
+    if meta.inst == 'wfc3':
+        scandir = np.repeat(meta.scandir, meta.nreads)
+
+        # Compute the MAD for each scan direction
+        for p in range(2):
+            iscans = np.where(scandir == p)[0]
+            if len(iscans) > 0:
+                mad = np.ma.mean(ediff[iscans])
+                log.writelog(f"Scandir {p} MAD = {int(np.round(mad))} ppm")
+                setattr(meta, f'mad_scandir{p}', mad)   
+
+    return np.ma.mean(ediff)
 
 
 def get_mad_1d(data, ind_min=0, ind_max=-1):
@@ -358,8 +415,34 @@ def read_time(meta, data):
     fname = os.path.join(meta.topdir,
                          os.sep.join(meta.time_file.split(os.sep)))
     if meta.firstFile:
-        print('  Note: Using the time stamps from:\n'+fname)
+        print('  Note: Using the time stamps from:\n  '+fname)
     time = np.loadtxt(fname).flatten()[data.attrs['intstart']-1:
                                        data.attrs['intend']-1]
 
     return time
+
+
+def manmask(data, meta, log):
+    '''Manually mask input bad pixels.
+
+    Parameters
+    ----------
+    data : Xarray Dataset
+        The Dataset object.
+    meta : eureka.lib.readECF.MetaClass
+        The metadata object.
+    log : logedit.Logedit
+        The current log.
+
+    Returns
+    -------
+    data : Xarray Dataset
+        The updated Dataset object with requested pixels masked.
+    '''
+    log.writelog("  Masking manually identified bad pixels",
+                 mute=(not meta.verbose))
+    for i in range(len(meta.manmask)):
+        colstart, colend, rowstart, rowend = meta.manmask[i]
+        data['mask'][rowstart:rowend, colstart:colend] = 0
+
+    return data
