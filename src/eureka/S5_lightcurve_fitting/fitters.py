@@ -152,7 +152,7 @@ def lsqfitter(lc, model, meta, log, calling_function='lsq', **kwargs):
             else:
                 chan = 0
             scatter_ppm = (fit_params[i] *
-                           np.ma.median(lc.unc[chan*lc.time.size:
+                           np.nanmedian(lc.unc[chan*lc.time.size:
                                                (chan+1)*lc.time.size]) * 1e6)
             log.writelog(f'{freenames[i]}: {fit_params[i]}; {scatter_ppm} ppm')
         else:
@@ -416,13 +416,13 @@ def emceefitter(lc, model, meta, log, **kwargs):
             else:
                 chan = 0
             scatter_ppm = (1e6 * fit_params[i] *
-                           np.ma.median(lc.unc[chan*lc.time.size:
+                           np.nanmedian(lc.unc[chan*lc.time.size:
                                                (chan+1)*lc.time.size]))
             scatter_ppm_upper = (1e6 * upper_errs[i] *
-                                 np.ma.median(lc.unc[chan*lc.time.size:
+                                 np.nanmedian(lc.unc[chan*lc.time.size:
                                                      (chan+1)*lc.time.size]))
             scatter_ppm_lower = (1e6 * lower_errs[i] *
-                                 np.ma.median(lc.unc[chan*lc.time.size:
+                                 np.nanmedian(lc.unc[chan*lc.time.size:
                                                      (chan+1)*lc.time.size]))
             log.writelog(f'{freenames[i]}: {fit_params[i]} (+{upper_errs[i]},'
                          f' -{lower_errs[i]}); {scatter_ppm} '
@@ -873,13 +873,13 @@ def dynestyfitter(lc, model, meta, log, **kwargs):
             else:
                 chan = 0
             scatter_ppm = (1e6 * fit_params[i] *
-                           np.ma.median(lc.unc[chan*lc.time.size:
+                           np.nanmedian(lc.unc[chan*lc.time.size:
                                                (chan+1)*lc.time.size]))
             scatter_ppm_upper = (1e6 * upper_errs[i] *
-                                 np.ma.median(lc.unc[chan*lc.time.size:
+                                 np.nanmedian(lc.unc[chan*lc.time.size:
                                                      (chan+1)*lc.time.size]))
             scatter_ppm_lower = (1e6 * lower_errs[i] *
-                                 np.ma.median(lc.unc[chan*lc.time.size:
+                                 np.nanmedian(lc.unc[chan*lc.time.size:
                                                      (chan+1)*lc.time.size]))
             log.writelog(f'{freenames[i]}: {fit_params[i]} (+{upper_errs[i]},'
                          f' -{lower_errs[i]}); {scatter_ppm} '
