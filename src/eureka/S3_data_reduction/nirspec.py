@@ -47,12 +47,12 @@ def read(filename, data, meta, log):
     data.attrs['mhdr'] = hdulist[0].header
     data.attrs['shdr'] = hdulist['SCI', 1].header
     try:
-        data.attrs['intstart'] = data.attrs['mhdr']['INTSTART']
+        data.attrs['intstart'] = data.attrs['mhdr']['INTSTART']-1
         data.attrs['intend'] = data.attrs['mhdr']['INTEND']
     except:
         # FINDME: Need to only catch the particular exception we expect
         print('  WARNING: Manually setting INTSTART to 1 and INTEND to NINTS')
-        data.attrs['intstart'] = 1
+        data.attrs['intstart'] = 0
         data.attrs['intend'] = data.attrs['mhdr']['NINTS']
 
     sci = hdulist['SCI', 1].data
@@ -60,12 +60,12 @@ def read(filename, data, meta, log):
     dq = hdulist['DQ', 1].data
     v0 = hdulist['VAR_RNOISE', 1].data
     wave_2d = hdulist['WAVELENGTH', 1].data
-    int_times = hdulist['INT_TIMES', 1].data[data.attrs['intstart']-1:
+    int_times = hdulist['INT_TIMES', 1].data[data.attrs['intstart']:
                                              data.attrs['intend']]
 
     # Record integration mid-times in BJD_TDB
     if (hasattr(meta, 'time_file') and meta.time_file is not None):
-        time = read_time(meta, data)
+        time = read_time(meta, data, log)
     elif len(int_times['int_mid_BJD_TDB']) == 0:
         # There is no time information in the simulated NIRSpec data
         print('  WARNING: The timestamps for the simulated NIRSpec data are '
