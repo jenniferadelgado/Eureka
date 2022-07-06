@@ -7,7 +7,7 @@ from ..lib import util
 from ..lib.plots import figure_filetype
 
 
-def lc_nodriftcorr(meta, wave_1d, optspec):
+def lc_nodriftcorr(meta, wave_1d, optspec, optmask=None):
     '''Plot a 2D light curve without drift correction. (Fig 3101)
 
     Parameters
@@ -19,14 +19,15 @@ def lc_nodriftcorr(meta, wave_1d, optspec):
         which have been set in the S3 ecf
     optspec : ndarray
         The optimally extracted spectrum.
+    optmask : ndarray (1D), optional
+        A mask array to use if optspec is not a masked array. Defaults to None
+        in which case only the invalid values of optspec will be masked.
 
     Returns
     -------
     None
     '''
-    optspec = np.ma.masked_invalid(optspec)
-    normspec = util.normalize_spectrum(meta, optspec)
-    n_int = optspec.shape[0]
+    normspec = util.normalize_spectrum(meta, optspec, optmask=optmask)
     wmin = wave_1d.min()
     wmax = wave_1d.max()
     vmin = 0.97
@@ -35,7 +36,7 @@ def lc_nodriftcorr(meta, wave_1d, optspec):
     plt.figure(3101, figsize=(8, 8))
     plt.clf()
     plt.imshow(normspec, origin='lower', aspect='auto',
-               extent=[wmin, wmax, 0, n_int], vmin=vmin, vmax=vmax,
+               extent=[wmin, wmax, 0, meta.n_int], vmin=vmin, vmax=vmax,
                cmap=plt.cm.RdYlBu_r)
     plt.title(f"MAD = {int(np.round(meta.mad_s3, 0))} ppm")
     plt.ylabel('Integration Number')
@@ -68,17 +69,18 @@ def image_and_background(data, meta, log, m):
     '''
     log.writelog('  Creating figures for background subtraction',
                  mute=(not meta.verbose))
+
+    intstart, subdata, submask, subbg = (data.attrs['intstart'],
+                                         data.flux.values,
+                                         data.mask.values,
+                                         data.bg.values)
+    xmin, xmax = data.flux.x.min().values, data.flux.x.max().values
+    ymin, ymax = data.flux.y.min().values, data.flux.y.max().values
+
     iterfn = range(meta.n_int)
     if meta.verbose:
         iterfn = tqdm(iterfn)
     for n in iterfn:
-        intstart, subdata, submask, subbg = (data.attrs['intstart'],
-                                             data.flux.values,
-                                             data.mask.values,
-                                             data.bg.values)
-        xmin, xmax = data.flux.x.min().values, data.flux.x.max().values
-        ymin, ymax = data.flux.y.min().values, data.flux.y.max().values
-
         plt.figure(3301, figsize=(8, 8))
         plt.clf()
         plt.suptitle(f'Integration {intstart + n}')
