@@ -202,7 +202,7 @@ def genlc(eventlabel, ecf_path=None, s3_meta=None):
             # Do 1D sigma clipping (along time axis) on unbinned spectra
             if meta.sigma_clip:
                 log.writelog('Sigma clipping unbinned optimal spectra along '
-                             'time axis')
+                             'time axis...')
                 outliers = 0
                 for w in range(meta.subnx):
                     spec.optspec[:, w], spec.optmask[:, w], nout = \
