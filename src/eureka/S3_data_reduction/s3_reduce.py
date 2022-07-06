@@ -286,8 +286,8 @@ def reduce(eventlabel, ecf_path=None, s2_meta=None):
                 # correct G395H curvature
                 if meta.inst == 'nirspec' and data.mhdr['GRATING'] == 'G395H':
                     if meta.curvature == 'correct':
-                        log.writelog('  In NIRSpec G395H setting with curvature '
-                                     'correction:', mute=(not meta.verbose))
+                        log.writelog('  Correcting for G395H curvature...',
+                                     mute=(not meta.verbose))
                         data, meta = inst.straighten_trace(data, meta, log)
 
                 # Create bad pixel mask (1 = good, 0 = bad)
@@ -297,6 +297,8 @@ def reduce(eventlabel, ecf_path=None, s2_meta=None):
                                 np.ones(data.flux.shape, dtype=bool))
 
                 # Check if arrays have NaNs
+                log.writelog('  Masking NaNs in data arrays...',
+                             mute=(not meta.verbose))
                 data['mask'] = util.check_nans(data['flux'], data['mask'],
                                                log, name='FLUX')
                 data['mask'] = util.check_nans(data['err'], data['mask'],

@@ -78,7 +78,7 @@ def check_nans(data, mask, log, name=''):
     if num_nans > 0:
         log.writelog(f"  WARNING: {name} has {num_nans} NaNs. Your subregion "
                      f"may be off the edge of the detector subarray.\n"
-                     f"  Masking NaN region and continuing, but you should "
+                     f"    Masking NaN region and continuing, but you should "
                      f"really stop and reconsider your choices.")
         inan = np.where(np.isnan(data))
         # subdata[inan]  = 0
