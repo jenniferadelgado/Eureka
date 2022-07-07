@@ -63,7 +63,7 @@ def read(filename, data, meta, log):
     if np.all(hdulist['WAVELENGTH', 1].data == 0):
         if meta.firstFile:
             log.writelog('  WARNING: The wavelength for the simulated MIRI '
-                         'data are currently hardcoded\n    because they are '
+                         'data are currently hardcoded because they are '
                          'not in the .fits files themselves')
         wave_2d = np.tile(wave_MIRI_hardcoded(), (sci.shape[2], 1))[:, ::-1]
     else:
@@ -77,7 +77,7 @@ def read(filename, data, meta, log):
     elif len(int_times['int_mid_BJD_TDB']) == 0:
         if meta.firstFile:
             log.writelog('  WARNING: The timestamps for the simulated MIRI '
-                         'data are currently hardcoded\nbecause they are not '
+                         'data are currently hardcoded because they are not '
                          'in the .fits files themselves')
         if ('L168-9b' in data.attrs['filename']):
             time_i = 0

@@ -270,7 +270,7 @@ def genlc(eventlabel, ecf_path=None, s3_meta=None):
             meta.mad_s4 = util.get_mad(meta, log, spec.wave_1d.values,
                                        spec.optspec, spec.optmask,
                                        meta.wave_min, meta.wave_max)
-            log.writelog(f"Stage 4 MAD = {str(np.round(meta.mad_s4, 2))} ppm")
+            log.writelog(f"Stage 4 MAD = {np.round(meta.mad_s4, 2):.2f} ppm")
 
             if meta.isplots_S4 >= 1:
                 plots_s4.lc_driftcorr(meta, spec.wave_1d, spec.optspec,
@@ -315,6 +315,71 @@ def genlc(eventlabel, ecf_path=None, s3_meta=None):
                 # Plot each spectroscopic light curve
                 if meta.isplots_S4 >= 3:
                     plots_s4.binned_lightcurve(meta, log, lc, i)
+
+            # If requested, also generate white-light light curve
+            if hasattr(meta, 'compute_white') and meta.compute_white:
+                log.writelog("Generating white-light light curve")
+
+                lcdata_white = xrio.makeLCDA(np.ma.zeros((1, meta.n_int)),
+                                             [np.mean(meta.wave), ],
+                                             spec.time.values,
+                                             spec.optspec.attrs['flux_units'],
+                                             spec.wave_1d.attrs['wave_units'],
+                                             spec.optspec.attrs['time_units'],
+                                             name='flux_white')
+                lcerr_white = xrio.makeLCDA(np.ma.zeros((1, meta.n_int)),
+                                            [np.mean(meta.wave), ],
+                                            spec.time.values,
+                                            spec.optspec.attrs['flux_units'],
+                                            spec.wave_1d.attrs['wave_units'],
+                                            spec.optspec.attrs['time_units'],
+                                            name='err_white')
+                mask_white = xrio.makeLCDA(np.zeros((1, meta.n_int),
+                                                    dtype=bool),
+                                           [np.mean(meta.wave), ],
+                                           spec.time.values, 'None',
+                                           spec.wave_1d.attrs['wave_units'],
+                                           spec.optspec.attrs['time_units'],
+                                           name='mask_white')
+                lc['flux_white'] = lcdata_white
+                lc['err_white'] = lcerr_white
+                lc['mask_white'] = mask_white
+
+                log.writelog(f"  White-light Bandpass = {meta.wave_min:.3f} - "
+                             f"{meta.wave_max:.3f}")
+                # Compute valid indeces within wavelength range
+                index = np.where((spec.wave_1d >= meta.wave_min) *
+                                 (spec.wave_1d < meta.wave_max))[0]
+                # Make masked arrays for easy summing
+                optspec_ma = np.ma.masked_where(spec.optmask[:, index],
+                                                spec.optspec[:, index])
+                opterr_ma = np.ma.masked_where(spec.optmask[:, index],
+                                               spec.opterr[:, index])
+                # Compute mean flux for each spectroscopic channel
+                # Sumation leads to outliers when there are masked points
+                lc['flux_white'][0] = np.ma.mean(optspec_ma, axis=1)
+                # Add uncertainties in quadrature
+                # then divide by number of good points to get
+                # proper uncertainties
+                lc['err_white'][0] = (np.sqrt(np.ma.sum(opterr_ma**2, axis=1)) /
+                                      np.ma.MaskedArray.count(opterr_ma, axis=1))
+
+                # Do 1D sigma clipping (along time axis) on binned spectra
+                if meta.sigma_clip:
+                    lc['flux_white'][0], lc['mask_white'][i], nout = \
+                        clipping.clip_outliers(
+                            lc['flux_white'][0], log,
+                            np.mean([meta.wave_min, meta.wave_max]),
+                            mask=lc['mask_white'][i],
+                            sigma=meta.sigma, box_width=meta.box_width,
+                            maxiters=meta.maxiters, boundary=meta.boundary,
+                            fill_value=meta.fill_value, verbose=False)
+                    log.writelog(f'  Sigma clipped {nout} outliers in time '
+                                 f' series')
+
+                # Plot the white-light light curve
+                if meta.isplots_S4 >= 3:
+                    plots_s4.binned_lightcurve(meta, log, lc, 0, white=True)
 
             # Calculate total time
             total = (time_pkg.time() - t0) / 60.

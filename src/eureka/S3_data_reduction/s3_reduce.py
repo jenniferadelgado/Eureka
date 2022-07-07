@@ -350,7 +350,7 @@ def reduce(eventlabel, ecf_path=None, s2_meta=None):
                 medapdata = np.median(apdata, axis=0)
                 # Already converted DN to electrons, so gain = 1 for optspex
                 gain = 1
-                iterfn = range(meta.n_int)
+                iterfn = range(meta.int_start, meta.n_int)
                 if meta.verbose:
                     iterfn = tqdm(iterfn)
                 for n in iterfn:
